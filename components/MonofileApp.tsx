@@ -5,14 +5,17 @@ import Viewer from './Viewer';
 import { PWAGenerator } from './PWAGenerator';
 import * as storage from '../services/storageService';
 import { AppStatus, Project } from '../types';
-import { LoaderIcon, CheckCircleIcon, SparklesIcon, CloudSyncIcon, PlusIcon, XIcon } from './Icons';
+import { LoaderIcon, CheckCircleIcon, SparklesIcon, PlusIcon, XIcon } from './Icons'; // Removed CloudSyncIcon
 import { useProjectProcessor } from '../hooks/useProjectProcessor';
 
 const MonofileApp: React.FC = () => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
   const [logs, setLogs] = useState<string[]>([]);
+  
+  // We keep this state to satisfy the hook requirements, but we won't use it in the UI
   const [isSynced, setIsSynced] = useState(false);
+  
   const [showPWAModal, setShowPWAModal] = useState(false);
   const terminalEndRef = useRef<HTMLDivElement>(null);
 
@@ -71,7 +74,8 @@ const MonofileApp: React.FC = () => {
     });
   };
 
-  const { handleFilesSelected, handleCloudSync, isSyncing } = useProjectProcessor({
+  // We removed 'handleCloudSync' and 'isSyncing' from the destructuring since we don't need them in the UI anymore
+  const { handleFilesSelected } = useProjectProcessor({
     activeProject,
     updateActiveProject,
     addLog,
@@ -168,14 +172,7 @@ const MonofileApp: React.FC = () => {
                       <span className="font-black text-[10px] uppercase">{activeProject.name} Active</span>
                     </div>
                     
-                    <button 
-                      onClick={handleCloudSync}
-                      disabled={isSyncing || isSynced}
-                      className={`flex items-center gap-3 px-5 py-2 rounded-full border transition-all ${isSynced ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 cursor-default' : 'bg-indigo-600/10 border-indigo-500/20 text-indigo-400 hover:bg-indigo-600 hover:text-white'}`}
-                    >
-                      {isSyncing ? <LoaderIcon /> : isSynced ? <CheckCircleIcon /> : <CloudSyncIcon />}
-                      <span className="font-black text-[10px] uppercase">{isSyncing ? 'Syncing...' : isSynced ? 'Cloud Synced' : 'Sync to Cloud'}</span>
-                    </button>
+                    {/* Cloud Sync Button REMOVED here */}
 
                     <div className="flex items-center gap-4 bg-zinc-950 border border-zinc-900 px-5 py-2 rounded-full">
                        <span className="text-[10px] font-black text-zinc-600 uppercase">Bridge</span>
