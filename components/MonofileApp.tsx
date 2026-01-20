@@ -153,7 +153,7 @@ const MonofileApp: React.FC = () => {
                         <span>Ingestion_Protocol_${activeProject.name.toLowerCase()}.log</span>
                     </div>
                     <div className="h-80 p-8 font-mono text-xs overflow-y-auto space-y-2 bg-[#050505] custom-scrollbar">
-                        {logs.map((log, i) => <div key={i} className={`flex gap-3 ${log.includes('!') ? 'text-amber-500/80' : 'text-zinc-500'}`}><span className="text-indigo-500/50 font-bold">>>></span><span className="flex-1">{log}</span></div>)}
+                        {logs.map((log, i) => <div key={i} className={`flex gap-3 ${log.includes('!') ? 'text-amber-500/80' : 'text-zinc-500'}`}><span className="text-indigo-500/50 font-bold">{'>>>'}</span><span className="flex-1">{log}</span></div>)}
                         <div ref={terminalEndRef} />
                     </div>
                 </div>
