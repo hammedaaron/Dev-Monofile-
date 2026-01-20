@@ -4,7 +4,14 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Monofile | Codebase Ingestion Engine</title>
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%236366f1'/><path d='M20 7H12A2 2 0 0 0 10 9V23A2 2 0 0 0 12 25H20A2 2 0 0 0 22 23V9A2 2 0 0 0 20 7Z' fill='none' stroke='white' stroke-width='2' stroke-linejoin='round'/><path d='M16 12H18M14 16H18M14 20H16' stroke='white' stroke-width='2' stroke-linecap='round'/></svg>">
+    
+    <!-- BRANDING: Silver </> on Black Background -->
+    <!-- 1. Browser Tab Icon -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='black'/><path d='M9 10 L4 16 L9 22 M14 22 L19 10 M23 10 L28 16 L23 22' stroke='%23C0C0C0' stroke-width='3' stroke-linecap='round' stroke-linejoin='round' fill='none'/></svg>">
+    
+    <!-- 2. Mobile/PWA Home Screen Icon -->
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='black'/><path d='M9 10 L4 16 L9 22 M14 22 L19 10 M23 10 L28 16 L23 22' stroke='%23C0C0C0' stroke-width='3' stroke-linecap='round' stroke-linejoin='round' fill='none'/></svg>">
+
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -174,17 +181,18 @@
         transform: translateY(0);
       }
     </style>
+    <link rel="stylesheet" href="/index.css">
   <script type="importmap">
 {
   "imports": {
-    "vite": "https://esm.sh/vite@^7.3.1",
-    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2",
-    "react/": "https://esm.sh/react@^19.2.3/",
     "react": "https://esm.sh/react@^19.2.3",
     "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
-    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@^2.91.0",
+    "react/": "https://esm.sh/react@^19.2.3/",
     "@google/genai": "https://esm.sh/@google/genai@^1.37.0",
-    "marked": "https://esm.sh/marked@^17.0.1"
+    "marked": "https://esm.sh/marked@^17.0.1",
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@^2.91.0",
+    "vite": "https://esm.sh/vite@^7.3.1",
+    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2"
   }
 }
 </script>

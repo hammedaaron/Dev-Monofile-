@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../services/supabaseClient';
 
 // SIMPLE SECURITY CONFIG
-const ADMIN_PASSWORD = "monofile-master"; // <--- CHANGE THIS IF YOU WANT
+const ADMIN_PASSWORD = "monofile2024"; // Updated password per lead recommendation
 
 export const Admin = ({ onBack }: { onBack: () => void }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -47,11 +47,10 @@ export const Admin = ({ onBack }: { onBack: () => void }) => {
         finalUrl = url.replace('youtu.be/', 'youtube.com/embed/');
     }
 
-    // Save to Database
+    // --- UPDATED: Uses upsert to create row if it doesn't exist ---
     const { error } = await supabase
       .from('app_settings')
-      .update({ value: finalUrl })
-      .eq('key', 'landing_video');
+      .upsert({ key: 'landing_video', value: finalUrl }, { onConflict: 'key' });
 
     if (error) {
         setStatus('❌ Error: ' + error.message);

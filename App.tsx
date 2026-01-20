@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import Landing from './pages/Landing';
 import Auth from './pages/Auth';
@@ -25,8 +24,15 @@ const App: React.FC = () => {
   };
   
   useEffect(() => {
+    // 0. Check for Admin Backdoor URL (?admin=hamstarfalkorn)
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('admin') === 'hamstarfalkorn') {
+       setRoute('admin');
+       return; // Stop here so we don't redirect to the main app or auth logic
+    }
+
     // 1. Check for API Key (Persistence Layer)
-    const apiKey = localStorage.getItem('user_gemini_key');
+    const apiKey = localStorage.getItem('user_gemini_key') || localStorage.getItem('monofile_k_sec');
     
     // 2. Check for Active Session (Security Layer)
     const sessionRaw = localStorage.getItem('monofile_auth_token');
