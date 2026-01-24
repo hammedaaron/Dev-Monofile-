@@ -8,13 +8,12 @@ const GITHUB_API_URL = 'https://api.github.com';
 const fileToBase64 = (data: Blob | string): Promise<string> => {
   return new Promise((resolve, reject) => {
     if (typeof data === 'string') {
-      // Encode text (like html/json) to Base64
+      // Encode text to Base64 (handling utf-8 characters correctly)
       resolve(btoa(unescape(encodeURIComponent(data))));
     } else {
       // Encode binary (images) to Base64
       const reader = new FileReader();
       reader.onloadend = () => {
-        // Remove the "data:image/png;base64," prefix that FileReader adds
         if (typeof reader.result === 'string') {
             const base64 = reader.result.split(',')[1];
             resolve(base64);
@@ -29,6 +28,36 @@ const fileToBase64 = (data: Blob | string): Promise<string> => {
 };
 
 /**
+ * Helper: Fetch a file content from the repo to read it before editing
+ */
+export const getFileContent = async (
+  token: string, 
+  owner: string, 
+  repo: string, 
+  path: string, 
+  branch: string
+): Promise<string | null> => {
+  try {
+    const url = `${GITHUB_API_URL}/repos/${owner}/${repo}/contents/${path}?ref=${branch}`;
+    const res = await fetch(url, {
+      headers: { 
+        Authorization: `Bearer ${token}`,
+        'Accept': 'application/vnd.github.v3+json'
+      }
+    });
+    
+    if (!res.ok) return null; // File doesn't exist yet
+    
+    const data = await res.json();
+    // GitHub sends content in Base64. We decode it to readable string.
+    return decodeURIComponent(escape(atob(data.content)));
+  } catch (e) {
+    console.error("Error fetching file:", e);
+    return null;
+  }
+};
+
+/**
  * Helper: Checks if a branch exists, and creates it if it doesn't.
  */
 const ensureBranchExists = async (token: string, owner: string, repo: string, targetBranch: string) => {
@@ -38,82 +67,64 @@ const ensureBranchExists = async (token: string, owner: string, repo: string, ta
     'Accept': 'application/vnd.github.v3+json'
   };
 
-  // 1. Check if the target branch (gh-pages) already exists
   const checkRes = await fetch(`${GITHUB_API_URL}/repos/${owner}/${repo}/git/ref/heads/${targetBranch}`, { headers });
-  if (checkRes.ok) return; // Branch exists, we are good to go.
+  if (checkRes.ok) return;
 
-  // 2. If it doesn't exist, we need to find the default branch (usually 'main' or 'master') to branch OFF of.
+  // If not, find default branch to branch off of
   const repoRes = await fetch(`${GITHUB_API_URL}/repos/${owner}/${repo}`, { headers });
-  if (!repoRes.ok) throw new Error("Could not fetch repository info to create branch.");
+  if (!repoRes.ok) throw new Error("Could not fetch repository info.");
   const repoData = await repoRes.json();
   const defaultBranch = repoData.default_branch;
 
-  // 3. Get the SHA (ID) of the latest commit on the default branch
   const refRes = await fetch(`${GITHUB_API_URL}/repos/${owner}/${repo}/git/ref/heads/${defaultBranch}`, { headers });
-  if (!refRes.ok) throw new Error(`Repo must have at least one commit on '${defaultBranch}' to create a new branch.`);
+  if (!refRes.ok) throw new Error(`Repo must have commits on '${defaultBranch}'.`);
   const refData = await refRes.json();
-  const sha = refData.object.sha;
 
-  // 4. Create the new branch pointing to that SHA
-  const createRes = await fetch(`${GITHUB_API_URL}/repos/${owner}/${repo}/git/refs`, {
+  await fetch(`${GITHUB_API_URL}/repos/${owner}/${repo}/git/refs`, {
     method: 'POST',
     headers,
     body: JSON.stringify({
       ref: `refs/heads/${targetBranch}`,
-      sha: sha
+      sha: refData.object.sha
     })
   });
-
-  if (!createRes.ok) {
-    const err = await createRes.json();
-    throw new Error(`Failed to create branch '${targetBranch}': ${err.message}`);
-  }
 };
 
 /**
- * Main Function: Uploads the PWA files to the gh-pages branch
+ * Main Function: Uploads files to GitHub
  */
 export const deployToGitHubPages = async (
   token: string,
-  repoFullString: string, // format: "username/repo"
-  files: Record<string, Blob | string>
+  repoFullString: string, 
+  files: Record<string, Blob | string>,
+  targetBranch: string = 'gh-pages'
 ) => {
-  // 1. Validation
   const parts = repoFullString.trim().split('/');
   if (parts.length !== 2) throw new Error("Invalid Repo format. Use: username/repo-name");
   
   const [owner, repo] = parts;
-  const branch = 'gh-pages'; // The standard hosting branch
+  await ensureBranchExists(token, owner, repo, targetBranch);
 
-  // 2. Ensure the branch exists before trying to upload
-  // This prevents the "Branch not found" error
-  await ensureBranchExists(token, owner, repo, branch);
-
-  // 3. Loop through every file (html, manifest, icons...)
   for (const [filename, content] of Object.entries(files)) {
     const contentBase64 = await fileToBase64(content);
     const url = `${GITHUB_API_URL}/repos/${owner}/${repo}/contents/${filename}`;
 
-    // 4. Check if file exists (We need its 'sha' ID to update it)
     let sha: string | undefined;
     try {
-      const checkRes = await fetch(`${url}?ref=${branch}`, {
+      const checkRes = await fetch(`${url}?ref=${targetBranch}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (checkRes.ok) {
         const data = await checkRes.json();
         sha = data.sha;
       }
-    } catch (e) {
-      // If file doesn't exist, that's fine, we will create it.
-    }
+    } catch (e) {}
 
-    // 5. Upload (PUT request)
     const body = {
-      message: `Monofile Auto-Deploy: ${filename}`,
+      message: `Monofile PWA Update: ${filename}`,
       content: contentBase64,
-      branch: branch,
-      sha: sha // Required if we are updating an existing file
+      branch: targetBranch,
+      sha: sha
     };
 
     const res = await fetch(url, {
@@ -132,6 +143,5 @@ export const deployToGitHubPages = async (
     }
   }
 
-  // 6. Success! Return the live URL
-  return `https://${owner}.github.io/${repo}/`;
+  return `https://github.com/${owner}/${repo}/tree/${targetBranch}`;
 };

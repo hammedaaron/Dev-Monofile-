@@ -1,4 +1,3 @@
-
 /**
  * PWA Architect Service - v3.1 (Production Grade)
  * Generates specific naming conventions, strict 1:1 aspect ratio assets,
@@ -18,7 +17,8 @@ export const generatePWAAssets = async (
   blobs: Record<string, Blob>, 
   manifest: string, 
   indexHtml: string,
-  metaTags: string 
+  metaTags: string,
+  swScript: string 
 }> => {
   const url = URL.createObjectURL(file);
   const img = new Image();
@@ -126,7 +126,7 @@ self.addEventListener('fetch', (event) => {
     start_url: "/"
   }, null, 2);
 
-  // 4. Generate Header Tags for easy copying (with iOS Polish)
+  // 4. Generate Header Tags (with iOS Polish)
   const metaTags = `
 <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
@@ -139,7 +139,37 @@ self.addEventListener('fetch', (event) => {
 <meta name="apple-mobile-web-app-title" content="${config.shortName}">
   `.trim();
 
-  // 5. Generate Starter index.html
+  const swScript = `
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js').catch(err => console.log('SW registration failed:', err));
+    });
+  }
+</script>
+  `.trim();
+
+  // 5. Create Manual Integration Text File (Added to blobs)
+  const instructions = `
+MANUAL PWA INTEGRATION
+======================
+If you prefer not to use the automated index.html, follow these steps:
+
+1. COPY these files to your root directory (same folder as index.html):
+   - All .png and .ico images
+   - site.webmanifest
+   - sw.js
+
+2. PASTE this into the <HEAD> section of your index.html:
+${metaTags}
+
+3. PASTE this into the <BODY> section of your index.html:
+${swScript}
+  `.trim();
+
+  blobs['manual_integration.txt'] = new Blob([instructions], { type: 'text/plain' });
+
+  // 6. Generate Starter index.html
   const indexHtml = `
 <!DOCTYPE html>
 <html lang="en">
@@ -154,16 +184,10 @@ self.addEventListener('fetch', (event) => {
         <h1>${config.name} is running</h1>
         <p>PWA Assets successfully deployed.</p>
     </div>
-    <script>
-      if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js').catch(err => console.log('SW registration failed:', err));
-        });
-      }
-    </script>
+    ${swScript}
 </body>
 </html>
   `.trim();
 
-  return { blobs, manifest, indexHtml, metaTags };
+  return { blobs, manifest, indexHtml, metaTags, swScript };
 };
