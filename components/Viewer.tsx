@@ -1,7 +1,6 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { GeneratedOutputs, ConceptBundle, ChatMessage, Project } from '../types';
-import { DownloadIcon, CopyIcon, CheckCircleIcon, SparklesIcon, LoaderIcon, XIcon } from './Icons';
+import { DownloadIcon, CopyIcon, CheckCircleIcon, SparklesIcon, LoaderIcon, XIcon, PlusIcon } from './Icons';
 import { downloadStringAsFile } from '../services/fileService';
 import { recreateFeatureContext, startCodebaseChat } from '../services/geminiService';
 import { marked } from 'marked';
@@ -180,6 +179,14 @@ const Viewer: React.FC<ViewerProps> = ({ outputs, currentProject, otherProjects,
           )}
           {activeTab !== 'intelligence' && (
             <>
+              {activeTab === 'recreator' && outputs.recreatedContext && (
+                <button 
+                  onClick={() => onUpdateOutputs?.({ ...outputs, recreatedContext: '' })} 
+                  className="flex items-center gap-2 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-indigo-400 hover:text-white bg-indigo-500/10 border border-indigo-500/20 rounded-lg transition-all"
+                >
+                  <XIcon size={12} /> Reselect
+                </button>
+              )}
               <button onClick={handleCopy} className="flex items-center gap-2 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-zinc-300 hover:text-white bg-zinc-800 rounded-lg transition-all">{copied ? <CheckCircleIcon /> : <CopyIcon />}{copied ? 'Copied' : 'Copy'}</button>
               <button onClick={() => handleDownload('md')} className="flex items-center gap-2 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-zinc-300 hover:text-white bg-zinc-800 rounded-lg transition-all"><DownloadIcon /> .MD</button>
             </>

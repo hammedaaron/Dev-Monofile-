@@ -143,7 +143,7 @@ export const PWAGenerator: React.FC<PWAGeneratorProps> = ({ onClose, initialName
           <h2 className="text-3xl font-black text-white uppercase tracking-tighter">PWA Architect</h2>
           <p className="text-zinc-500 text-[10px] font-black uppercase tracking-widest mt-1">Deployment-Ready Package Generator</p>
         </div>
-        <button onClose={onClose} className="p-2 text-zinc-500 hover:text-white transition-colors"><XIcon size={24} /></button>
+        <button onClick={onClose} className="p-2 text-zinc-500 hover:text-white transition-colors"><XIcon size={24} /></button>
       </div>
 
       {!result ? (
