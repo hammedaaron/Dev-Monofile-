@@ -5,7 +5,7 @@ import Viewer from './Viewer';
 import { PWAGenerator } from './PWAGenerator';
 import * as storage from '../services/storageService';
 import { AppStatus, Project } from '../types';
-import { LoaderIcon, CheckCircleIcon, SparklesIcon, PlusIcon, XIcon } from './Icons'; // Removed CloudSyncIcon
+import { LoaderIcon, CheckCircleIcon, SparklesIcon, PlusIcon, XIcon } from './Icons';
 import { useProjectProcessor } from '../hooks/useProjectProcessor';
 
 const MonofileApp: React.FC = () => {
@@ -13,9 +13,7 @@ const MonofileApp: React.FC = () => {
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
   const [logs, setLogs] = useState<string[]>([]);
   
-  // We keep this state to satisfy the hook requirements, but we won't use it in the UI
   const [isSynced, setIsSynced] = useState(false);
-  
   const [showPWAModal, setShowPWAModal] = useState(false);
   const terminalEndRef = useRef<HTMLDivElement>(null);
 
@@ -74,7 +72,6 @@ const MonofileApp: React.FC = () => {
     });
   };
 
-  // We removed 'handleCloudSync' and 'isSyncing' from the destructuring since we don't need them in the UI anymore
   const { handleFilesSelected } = useProjectProcessor({
     activeProject,
     updateActiveProject,
@@ -84,12 +81,42 @@ const MonofileApp: React.FC = () => {
   });
 
   const closeProject = async (id: string, e?: React.MouseEvent) => {
-    if (e) e.stopPropagation();
-    const newProjects = projects.filter(p => p.id !== id);
-    setProjects(newProjects);
-    await storage.deleteProject(id);
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+
+    const projectToDelete = projects.find(p => p.id === id);
+    if (!projectToDelete) return;
+
+    const confirmed = window.confirm(`DECOMMISSION COMMAND: Are you sure you want to permanently erase the "${projectToDelete.name}" environment? This cannot be undone.`);
+    
+    if (!confirmed) return;
+
+    // 1. Optimistic UI update: Remove from state immediately
+    const remainingProjects = projects.filter(p => p.id !== id);
+    setProjects(remainingProjects);
+
+    // 2. Persistent storage deletion
+    try {
+      await storage.deleteProject(id);
+    } catch (err) {
+      console.error("Failed to delete project from storage:", err);
+      // Optional: Refresh from storage if delete failed
+      const stored = await storage.getAllProjects();
+      setProjects(stored);
+      alert("Operational Fault: Could not delete environment from persistent storage.");
+      return;
+    }
+
+    // 3. Handle active project switch
     if (activeProjectId === id) {
-      setActiveProjectId(newProjects.length > 0 ? newProjects[0].id : null);
+      if (remainingProjects.length > 0) {
+        setActiveProjectId(remainingProjects[0].id);
+      } else {
+        setActiveProjectId(null);
+        setLogs([]);
+      }
     }
   };
 
@@ -131,7 +158,7 @@ const MonofileApp: React.FC = () => {
              <div key={p.id} onClick={() => { setActiveProjectId(p.id); setShowPWAModal(false); }} className={`group flex items-center gap-4 px-6 py-4 rounded-2xl border transition-all cursor-pointer ${activeProjectId === p.id && !showPWAModal ? 'bg-zinc-900 border-indigo-500/50 text-white shadow-xl' : 'bg-black border-zinc-800 text-zinc-500'}`}>
                <span className={`w-2 h-2 rounded-full ${p.status === AppStatus.COMPLETE ? 'bg-emerald-500' : 'bg-indigo-500 animate-pulse'}`}></span>
                <span className="text-[10px] font-black uppercase truncate max-w-[140px]">{p.name}</span>
-               <button onClick={(e) => closeProject(p.id, e)} className="opacity-40 group-hover:opacity-100 hover:text-red-400 p-1"><XIcon size={14} /></button>
+               <button onClick={(e) => closeProject(p.id, e)} className="opacity-40 group-hover:opacity-100 hover:text-red-400 p-1 transition-all"><XIcon size={14} /></button>
              </div>
            ))}
            <button onClick={createNewProject} className="p-4 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 hover:bg-indigo-500 hover:text-white transition-all"><PlusIcon /></button>
@@ -172,8 +199,6 @@ const MonofileApp: React.FC = () => {
                       <span className="font-black text-[10px] uppercase">{activeProject.name} Active</span>
                     </div>
                     
-                    {/* Cloud Sync Button REMOVED here */}
-
                     <div className="flex items-center gap-4 bg-zinc-950 border border-zinc-900 px-5 py-2 rounded-full">
                        <span className="text-[10px] font-black text-zinc-600 uppercase">Bridge</span>
                        <button onClick={() => updateActiveProject({ knowledgeBridgeEnabled: !activeProject.knowledgeBridgeEnabled })} className={`w-10 h-5 rounded-full relative transition-all ${activeProject.knowledgeBridgeEnabled ? 'bg-indigo-600' : 'bg-zinc-800'}`}><div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${activeProject.knowledgeBridgeEnabled ? 'left-[22px]' : 'left-1'}`}></div></button>

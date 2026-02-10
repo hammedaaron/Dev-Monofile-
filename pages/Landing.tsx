@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../services/supabaseClient';
 
@@ -7,12 +6,12 @@ interface LandingProps {
 }
 
 const Landing: React.FC<LandingProps> = ({ onNavigate }) => {
-  const [videoUrl, setVideoUrl] = useState<string>(""); 
+  const [videoContent, setVideoContent] = useState<string>(""); 
 
   useEffect(() => {
     const fetchVideo = async () => {
         // Default fallback if DB fails or is empty
-        let currentVideo = "https://www.youtube.com/embed/M7lc1UVf-VE?rel=0&modestbranding=1&showinfo=0";
+        let currentContent = "https://www.youtube.com/embed/M7lc1UVf-VE?rel=0&modestbranding=1&showinfo=0";
         
         try {
           const { data } = await supabase
@@ -22,15 +21,41 @@ const Landing: React.FC<LandingProps> = ({ onNavigate }) => {
               .single();
 
           if (data && data.value) {
-              currentVideo = data.value;
+              currentContent = data.value;
           }
         } catch (err) {
           console.warn("Using fallback video source");
         }
-        setVideoUrl(currentVideo);
+        setVideoContent(currentContent);
     };
     fetchVideo();
   }, []);
+
+  const renderVideo = () => {
+    if (!videoContent) return null;
+    
+    // Check if it is full HTML (iframe or similar)
+    if (videoContent.trim().startsWith('<')) {
+        return (
+            <div 
+                className="w-full h-full"
+                dangerouslySetInnerHTML={{ __html: videoContent }}
+            />
+        );
+    }
+    
+    // Fallback to iframe with content as src
+    return (
+        <iframe 
+            className="w-full h-full"
+            src={videoContent}
+            title="Monofile Walkthrough"
+            frameBorder="0" 
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+            allowFullScreen
+        ></iframe>
+    );
+  };
 
   return (
     <div className="w-full text-zinc-200 selection:bg-indigo-500/30">
@@ -80,16 +105,7 @@ const Landing: React.FC<LandingProps> = ({ onNavigate }) => {
              
              {/* 2. The Video Player Container */}
              <div className="relative aspect-video bg-black rounded-[1.4rem] border border-zinc-800 overflow-hidden shadow-2xl">
-                 {videoUrl && (
-                     <iframe 
-                        className="w-full h-full"
-                        src={videoUrl}
-                        title="Monofile Walkthrough"
-                        frameBorder="0" 
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
-                        allowFullScreen
-                     ></iframe>
-                 )}
+                 {videoContent && renderVideo()}
              </div>
 
              {/* 3. Label */}

@@ -23,8 +23,8 @@ export const PWAGenerator: React.FC<PWAGeneratorProps> = ({ onClose, initialName
   // GITHUB DEPLOY STATE
   const [ghToken, setGhToken] = useState('');
   const [repoName, setRepoName] = useState('');
-  const [targetBranch, setTargetBranch] = useState('main'); // Default to main branch
-  const [smartInject, setSmartInject] = useState(true); // Default to Automatic
+  const [targetBranch, setTargetBranch] = useState('main'); 
+  const [smartInject, setSmartInject] = useState(true); 
   const [deploying, setDeploying] = useState(false);
   const [deployStatus, setDeployStatus] = useState<string | null>(null);
 
@@ -77,25 +77,18 @@ export const PWAGenerator: React.FC<PWAGeneratorProps> = ({ onClose, initialName
     try {
        const [owner, repo] = repoName.split('/');
        
-       // 1. Prepare base assets (Icons, manifest, service worker)
        const filesToUpload: Record<string, any> = {
          ...result.blobs,
          'site.webmanifest': result.manifest,
        };
 
-       // 2. SMART INJECTION LOGIC
        if (smartInject) {
           setDeployStatus(`Fetching current index.html from '${targetBranch}'...`);
-          
-          // Get your CURRENT html code from GitHub
           let currentHtml = await getFileContent(ghToken, owner, repo, 'index.html', targetBranch);
 
           if (currentHtml) {
              setDeployStatus("Injecting PWA tags safely...");
-             
-             // A. Inject Meta Tags into <head> if not already there
              if (!currentHtml.includes('site.webmanifest')) {
-                // Try to inject before </head>
                 if (currentHtml.includes('</head>')) {
                     currentHtml = currentHtml.replace('</head>', `${result.metaTags}\n</head>`);
                 } else {
@@ -103,34 +96,30 @@ export const PWAGenerator: React.FC<PWAGeneratorProps> = ({ onClose, initialName
                 }
              }
 
-             // B. Inject Script into <body> if not already there
-             const swScript = `<script>if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js'));}</script>`;
-             
+             const swScriptSnippet = `<script>if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js'));}</script>`;
              if (!currentHtml.includes('navigator.serviceWorker.register')) {
                 if (currentHtml.includes('</body>')) {
-                    currentHtml = currentHtml.replace('</body>', `${swScript}\n</body>`);
+                    currentHtml = currentHtml.replace('</body>', `${swScriptSnippet}\n</body>`);
                 } else {
-                    currentHtml = currentHtml + `\n${swScript}`;
+                    currentHtml = currentHtml + `\n${swScriptSnippet}`;
                 }
              }
-
-             // Add the modified file to the upload list
              filesToUpload['index.html'] = currentHtml;
           } else {
-             // If index.html doesn't exist on GitHub, use the generated one
              setDeployStatus("index.html not found, creating new one...");
              filesToUpload['index.html'] = result.indexHtml;
           }
-       } else {
-          // If NOT smart injecting, we don't upload HTML (Safe Mode)
-          // or you could force overwrite if you wanted.
        }
 
        setDeployStatus("Pushing updates to GitHub...");
        const liveUrl = await deployToGitHubPages(ghToken, repoName, filesToUpload, targetBranch);
        setDeployStatus(`SUCCESS: Pushed to ${liveUrl}`);
     } catch (err: any) {
-       setDeployStatus(`ERROR: ${err.message}`);
+       let msg = err.message;
+       if (msg.includes('Resource not accessible')) {
+          msg = "PERMISSION DENIED: Your GitHub token lacks write access. Ensure 'repo' (Classic) or 'Contents: Read & Write' (Fine-grained) is enabled.";
+       }
+       setDeployStatus(`ERROR: ${msg}`);
     } finally {
        setDeploying(false);
     }
@@ -148,7 +137,7 @@ export const PWAGenerator: React.FC<PWAGeneratorProps> = ({ onClose, initialName
 
       {!result ? (
         <div className="space-y-6">
-           <div className={`border-2 border-dashed rounded-3xl p-10 text-center transition-all duration-300 ${error ? 'border-red-500/50 bg-red-500/5' : 'border-zinc-800 hover:border-zinc-600 bg-black group'}`}>
+           <div className={`border-2 border-dashed rounded-3xl p-10 text-center transition-all duration-300 ${error ? 'border-red-500/50 bg-red-500/5' : 'border-zinc-800 hover:border-zinc-700 bg-black group'}`}>
              <input type="file" accept="image/png" onChange={handleFileChange} className="hidden" id="pwa-upload" />
              <label htmlFor="pwa-upload" className="cursor-pointer block">
                 <div className={`text-sm font-bold mb-2 transition-colors ${file ? 'text-indigo-400' : 'text-zinc-400 group-hover:text-zinc-200'}`}>
@@ -207,8 +196,26 @@ export const PWAGenerator: React.FC<PWAGeneratorProps> = ({ onClose, initialName
              
              <div className="space-y-4 mb-4">
                 <div className="space-y-1">
-                   <label className="text-[9px] font-black text-zinc-500 uppercase tracking-widest ml-2">GitHub Token</label>
+                   <div className="flex justify-between items-center px-2">
+                     <label className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">GitHub Token</label>
+                     <a href="https://github.com/settings/tokens" target="_blank" className="text-[9px] text-indigo-400 hover:text-white transition-colors uppercase font-bold underline underline-offset-4">Manage Scopes</a>
+                   </div>
                    <input type="password" placeholder="ghp_..." value={ghToken} onChange={e => setGhToken(e.target.value)} className="w-full bg-black border border-zinc-800 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-indigo-500" />
+                   
+                   {/* PERMISSION HELPER BOX */}
+                   <div className="mt-2 bg-black/40 border border-zinc-800 rounded-xl p-3">
+                      <p className="text-[8px] text-zinc-500 uppercase font-black tracking-widest mb-2">Required Permissions:</p>
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-2 text-[9px] font-bold text-zinc-400">
+                           <span className="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
+                           <span>Classic Token: <span className="text-white">repo</span> scope</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-[9px] font-bold text-zinc-400">
+                           <span className="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
+                           <span>Fine-grained: <span className="text-white">Contents (Read & Write)</span></span>
+                        </div>
+                      </div>
+                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
@@ -222,7 +229,6 @@ export const PWAGenerator: React.FC<PWAGeneratorProps> = ({ onClose, initialName
                 </div>
              </div>
 
-             {/* AUTOMATIC MODE TOGGLE */}
              <div className="flex items-center gap-3 mb-6 bg-indigo-500/10 p-4 rounded-xl border border-indigo-500/30">
                 <input type="checkbox" id="smartInject" checked={smartInject} onChange={e => setSmartInject(e.target.checked)} className="w-5 h-5 accent-indigo-500 cursor-pointer" />
                 <label htmlFor="smartInject" className="cursor-pointer">
@@ -232,7 +238,7 @@ export const PWAGenerator: React.FC<PWAGeneratorProps> = ({ onClose, initialName
              </div>
 
              {deployStatus && (
-                <div className={`p-4 rounded-xl mb-4 text-[10px] font-black uppercase tracking-widest ${deployStatus.includes('SUCCESS') ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : deployStatus.includes('ERROR') ? 'bg-red-500/10 text-red-400 border border-red-500/20' : 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'}`}>
+                <div className={`p-4 rounded-xl mb-4 text-[10px] font-black uppercase tracking-widest leading-relaxed ${deployStatus.includes('SUCCESS') ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : deployStatus.includes('ERROR') ? 'bg-red-500/10 text-red-400 border border-red-500/20' : 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'}`}>
                     {deployStatus}
                 </div>
              )}
@@ -242,7 +248,6 @@ export const PWAGenerator: React.FC<PWAGeneratorProps> = ({ onClose, initialName
              </button>
           </div>
 
-          {/* --- MANUAL INSTALL SNIPPETS --- */}
           <div className="bg-zinc-950/50 border border-zinc-900 rounded-[2rem] p-6 mb-6">
              <div className="flex items-center gap-2 mb-4 opacity-70">
                 <SparklesIcon />
@@ -252,7 +257,7 @@ export const PWAGenerator: React.FC<PWAGeneratorProps> = ({ onClose, initialName
              <div className="grid grid-cols-1 gap-4">
                 <div className="group relative">
                     <div className="flex justify-between items-center mb-1">
-                        <label className="text-[9px] font-bold text-zinc-600 uppercase">Head Tags (Paste in &lt;head&gt;)</label>
+                        <label className="text-[9px] font-bold text-zinc-600 uppercase">Head Tags</label>
                         <button onClick={() => navigator.clipboard.writeText(result.metaTags)} className="text-[9px] text-indigo-500 hover:text-white flex items-center gap-1"><CopyIcon /> Copy</button>
                     </div>
                     <div className="bg-black p-3 rounded-xl border border-zinc-800 overflow-x-auto custom-scrollbar">
@@ -262,16 +267,13 @@ export const PWAGenerator: React.FC<PWAGeneratorProps> = ({ onClose, initialName
 
                 <div className="group relative">
                     <div className="flex justify-between items-center mb-1">
-                        <label className="text-[9px] font-bold text-zinc-600 uppercase">Body Script (Paste in &lt;body&gt;)</label>
+                        <label className="text-[9px] font-bold text-zinc-600 uppercase">Body Script</label>
                         <button onClick={() => navigator.clipboard.writeText(result.swScript)} className="text-[9px] text-indigo-500 hover:text-white flex items-center gap-1"><CopyIcon /> Copy</button>
                     </div>
                     <div className="bg-black p-3 rounded-xl border border-zinc-800 overflow-x-auto custom-scrollbar">
                        <pre className="text-[10px] font-mono text-zinc-500 whitespace-pre-wrap">{result.swScript}</pre>
                     </div>
                 </div>
-             </div>
-             <div className="mt-3 text-[9px] text-zinc-600 font-bold uppercase tracking-widest text-center">
-                Also included in download as 'manual_integration.txt'
              </div>
           </div>
 

@@ -1,4 +1,3 @@
-
 export interface FileNode {
   path: string;
   name: string;
@@ -39,6 +38,8 @@ export interface GeneratedOutputs {
   aiContext: string;
   concepts: ConceptBundle[];
   recreatedContext?: string;
+  schematicMap?: string; // Mermaid or structural text for the map
+  folderMap?: string;    // Segmented folder structure
 }
 
 export interface Project {

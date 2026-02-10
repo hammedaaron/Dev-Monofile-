@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { GeneratedOutputs, ConceptBundle, ChatMessage, Project } from '../types';
-import { DownloadIcon, CopyIcon, CheckCircleIcon, SparklesIcon, LoaderIcon, XIcon, PlusIcon } from './Icons';
+import { DownloadIcon, CopyIcon, CheckCircleIcon, SparklesIcon, LoaderIcon, XIcon, PlusIcon, FileIcon } from './Icons';
 import { downloadStringAsFile } from '../services/fileService';
 import { recreateFeatureContext, startCodebaseChat } from '../services/geminiService';
 import { marked } from 'marked';
@@ -15,17 +15,21 @@ interface ViewerProps {
 }
 
 const Viewer: React.FC<ViewerProps> = ({ outputs, currentProject, otherProjects, onUpdateOutputs, onUpdateProject, onOpenPWA }) => {
-  const [activeTab, setActiveTab] = useState<'flattened' | 'summary' | 'context' | 'recreator' | 'intelligence'>('flattened');
+  const [activeTab, setActiveTab] = useState<'flattened' | 'summary' | 'context' | 'recreator' | 'intelligence' | 'map'>('flattened');
   const [copied, setCopied] = useState(false);
   const [selectedConcepts, setSelectedConcepts] = useState<string[]>([]);
   const [isExecuting, setIsExecuting] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [isExportingPDF, setIsExportingPDF] = useState(false);
   
+  const sourceRef = useRef<HTMLTextAreaElement>(null);
+  const pdfRef = useRef<HTMLDivElement>(null);
+  const mermaidRef = useRef<HTMLDivElement>(null);
+
   // Search State
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState<number[]>([]);
   const [currentSearchIndex, setCurrentSearchIndex] = useState(0);
-  const sourceRef = useRef<HTMLTextAreaElement>(null);
 
   // Chat State
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
@@ -45,12 +49,31 @@ const Viewer: React.FC<ViewerProps> = ({ outputs, currentProject, otherProjects,
     }
   }, [chatMessages, isChatting]);
 
+  useEffect(() => {
+    if (activeTab === 'map' && outputs.schematicMap && mermaidRef.current) {
+      // Clean mermaid code from possible markdown wrapping
+      const mermaidCode = outputs.schematicMap.match(/```mermaid([\s\S]*?)```/)?.[1] || 
+                          outputs.schematicMap.match(/graph (?:TD|LR|BT|RL)[\s\S]*/)?.[0] || 
+                          outputs.schematicMap;
+      
+      try {
+        // @ts-ignore
+        window.mermaid.render('mermaid-svg', mermaidCode.trim()).then(({ svg }) => {
+          if (mermaidRef.current) mermaidRef.current.innerHTML = svg;
+        });
+      } catch (err) {
+        console.warn("Mermaid render failed", err);
+      }
+    }
+  }, [activeTab, outputs.schematicMap]);
+
   const getContent = () => {
     switch (activeTab) {
       case 'flattened': return outputs.flattened;
       case 'summary': return outputs.summary;
       case 'context': return outputs.aiContext;
       case 'recreator': return outputs.recreatedContext || '';
+      case 'map': return `${outputs.schematicMap || ''}\n\n## FOLDER ARCHITECTURE\n${outputs.folderMap || ''}`;
       default: return '';
     }
   };
@@ -61,7 +84,54 @@ const Viewer: React.FC<ViewerProps> = ({ outputs, currentProject, otherProjects,
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleDownload = (format: 'txt' | 'md') => {
+  const handleDownloadPDF = async () => {
+    if (!pdfRef.current) return;
+    setIsExportingPDF(true);
+    
+    const element = pdfRef.current;
+    
+    // Calculate dimensions for a seamless, single-page PDF (Infinite Scroll Style)
+    const widthPx = element.scrollWidth;
+    const heightPx = element.scrollHeight;
+    
+    // Convert to mm (Standard A4 width is 210mm)
+    const mmWidth = 210;
+    const mmHeight = (heightPx * mmWidth) / widthPx;
+
+    const opt = {
+      margin: 0,
+      filename: `monofile_${activeTab}_${currentProject.name.toLowerCase()}.pdf`,
+      image: { type: 'jpeg', quality: 1 },
+      html2canvas: { 
+        scale: 2, 
+        useCORS: true, 
+        backgroundColor: '#050505',
+        logging: false,
+        letterRendering: true
+      },
+      jsPDF: { 
+        unit: 'mm', 
+        format: [mmWidth, mmHeight], // Dynamic height prevents page breaks
+        orientation: 'portrait' 
+      }
+    };
+
+    try {
+      // @ts-ignore
+      await window.html2pdf().from(element).set(opt).save();
+    } catch (err) {
+      console.error("Seamless PDF Export failed", err);
+      alert("PDF Export failed: Content size may exceed browser buffer limits.");
+    } finally {
+      setIsExportingPDF(false);
+    }
+  };
+
+  const handleDownload = (format: 'txt' | 'md' | 'pdf') => {
+    if (format === 'pdf') {
+      handleDownloadPDF();
+      return;
+    }
     const content = getContent();
     const prefix = activeTab === 'flattened' ? 'monofile_codebase' : `monofile_${activeTab}`;
     downloadStringAsFile(content, `${prefix}.${format}`, 'text/plain');
@@ -139,21 +209,22 @@ const Viewer: React.FC<ViewerProps> = ({ outputs, currentProject, otherProjects,
     }
   };
 
-  const isRichText = activeTab === 'summary' || activeTab === 'context' || (activeTab === 'recreator' && outputs.recreatedContext);
+  const isRichText = activeTab === 'summary' || activeTab === 'context' || activeTab === 'map' || (activeTab === 'recreator' && outputs.recreatedContext);
 
   return (
-    <div className="w-full max-w-5xl mx-auto flex flex-col h-[750px] bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden shadow-2xl relative">
+    <div className="w-full max-w-5xl mx-auto flex flex-col h-[800px] bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden shadow-2xl relative">
       <div className="flex flex-col lg:flex-row items-center justify-between border-b border-zinc-800 bg-zinc-900/50 p-3 gap-3">
         <div className="flex flex-wrap items-center justify-center gap-1.5 bg-black/40 p-1 rounded-xl border border-zinc-800/50">
-          {(['flattened', 'summary', 'context', 'recreator', 'intelligence'] as const).map((tab) => (
+          {(['flattened', 'summary', 'context', 'recreator', 'map', 'intelligence'] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`px-3 py-2 text-[10px] md:text-xs font-black rounded-lg transition-all uppercase tracking-widest ${activeTab === tab ? 'bg-white text-black' : 'text-zinc-500 hover:text-zinc-200'}`}
+              className={`px-3 py-2 text-[10px] md:text-xs font-black rounded-lg transition-all uppercase tracking-widest ${activeTab === tab ? 'bg-white text-black shadow-lg' : 'text-zinc-500 hover:text-zinc-200'}`}
             >
-              {tab === 'flattened' ? 'Source' : tab === 'summary' ? 'Audit' : tab === 'context' ? 'AI Brain' : tab === 'recreator' ? 'DNA' : 'Intelligence'}
+              {tab === 'flattened' ? 'Source' : tab === 'summary' ? 'Audit' : tab === 'context' ? 'AI Brain' : tab === 'recreator' ? 'DNA' : tab === 'map' ? 'Map' : 'Intelligence'}
             </button>
           ))}
+          <div className="w-px h-4 bg-zinc-800 mx-1"></div>
           <button onClick={onOpenPWA} className="px-3 py-2 text-[10px] md:text-xs font-black rounded-lg text-emerald-500 hover:text-white flex items-center gap-2 uppercase tracking-widest"><SparklesIcon /> PWA</button>
         </div>
 
@@ -178,18 +249,36 @@ const Viewer: React.FC<ViewerProps> = ({ outputs, currentProject, otherProjects,
             </div>
           )}
           {activeTab !== 'intelligence' && (
-            <>
+            <div className="flex items-center gap-1.5">
               {activeTab === 'recreator' && outputs.recreatedContext && (
                 <button 
                   onClick={() => onUpdateOutputs?.({ ...outputs, recreatedContext: '' })} 
-                  className="flex items-center gap-2 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-indigo-400 hover:text-white bg-indigo-500/10 border border-indigo-500/20 rounded-lg transition-all"
+                  className="flex items-center gap-2 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-indigo-400 hover:text-white bg-indigo-500/10 border border-indigo-500/20 rounded-lg transition-all"
                 >
-                  <XIcon size={12} /> Reselect
+                  <XIcon size={12} /> Reset
                 </button>
               )}
-              <button onClick={handleCopy} className="flex items-center gap-2 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-zinc-300 hover:text-white bg-zinc-800 rounded-lg transition-all">{copied ? <CheckCircleIcon /> : <CopyIcon />}{copied ? 'Copied' : 'Copy'}</button>
-              <button onClick={() => handleDownload('md')} className="flex items-center gap-2 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-zinc-300 hover:text-white bg-zinc-800 rounded-lg transition-all"><DownloadIcon /> .MD</button>
-            </>
+              
+              <button onClick={handleCopy} title="Copy Content" className="p-2 text-zinc-400 hover:text-white bg-zinc-800 rounded-lg transition-all border border-zinc-700">
+                {copied ? <CheckCircleIcon /> : <CopyIcon />}
+              </button>
+
+              <button 
+                onClick={() => handleDownload('txt')} 
+                title="Download as TXT"
+                className="flex items-center gap-2 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-zinc-300 hover:text-white bg-zinc-800 border border-zinc-700 rounded-lg transition-all"
+              >
+                <DownloadIcon /> TXT
+              </button>
+
+              <button 
+                onClick={() => handleDownload('pdf')} 
+                disabled={isExportingPDF}
+                className="flex items-center gap-2 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-white hover:text-white bg-indigo-600 hover:bg-indigo-500 border border-indigo-400/20 rounded-lg transition-all disabled:opacity-50 shadow-lg shadow-indigo-500/10"
+              >
+                {isExportingPDF ? <LoaderIcon /> : <DownloadIcon />} PDF
+              </button>
+            </div>
           )}
         </div>
       </div>
@@ -231,17 +320,50 @@ const Viewer: React.FC<ViewerProps> = ({ outputs, currentProject, otherProjects,
                   </button>
                 ))}
              </div>
-             <button onClick={handleExecuteRecreator} disabled={selectedConcepts.length === 0} className="px-14 py-6 rounded-full font-black text-xl bg-white text-black disabled:opacity-20 flex items-center gap-3 active:scale-95 transition-all"><SparklesIcon /> Extract Modules</button>
+             <button onClick={handleExecuteRecreator} disabled={selectedConcepts.length === 0} className="px-14 py-6 rounded-full font-black text-xl bg-white text-black disabled:opacity-20 flex items-center gap-3 active:scale-95 transition-all shadow-2xl"><SparklesIcon /> Extract Modules</button>
+          </div>
+        ) : activeTab === 'map' ? (
+          <div className="w-full h-full overflow-y-auto p-10 custom-scrollbar" ref={pdfRef}>
+            <div className="pdf-export-mode bg-[#050505] p-10 rounded-2xl min-h-full">
+              <div className="mb-12">
+                <div className="flex items-center gap-4 mb-8">
+                  <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400"><SparklesIcon /></div>
+                  <h2 className="text-3xl font-black text-white uppercase tracking-tighter">Feature Map Schematic</h2>
+                </div>
+                <div ref={mermaidRef} className="bg-black/40 border border-zinc-800 p-8 rounded-3xl overflow-x-auto flex justify-center mb-10 shadow-inner">
+                  {/* Mermaid SVG injected here */}
+                  {!outputs.schematicMap && <div className="text-zinc-600 uppercase font-black text-xs animate-pulse">Initializing Schematic...</div>}
+                </div>
+                <div className="markdown-body bg-zinc-900/30 p-8 rounded-3xl border border-zinc-800/50" dangerouslySetInnerHTML={{ __html: marked.parse(outputs.schematicMap || "", { async: false }) as string }} />
+              </div>
+
+              <div>
+                <div className="flex items-center gap-4 mb-8">
+                  <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400"><FileIcon /></div>
+                  <h2 className="text-3xl font-black text-white uppercase tracking-tighter">Architecture Tree</h2>
+                </div>
+                <div className="bg-black/60 border border-zinc-800 p-8 rounded-3xl font-mono text-[11px] leading-relaxed text-indigo-300 shadow-inner">
+                  {outputs.folderMap?.split('\n').map((line, i) => (
+                    <div key={i} className="flex gap-4 border-b border-zinc-900 last:border-0 py-1">
+                      <span className="text-zinc-700 w-8 select-none font-bold">{(i+1).toString().padStart(2, '0')}</span>
+                      <span className="opacity-80 font-medium">{line}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
         ) : isExecuting ? (
           <div className="w-full h-full flex flex-col items-center justify-center bg-black px-12">
              <div className="w-full max-w-md">
-                <div className="flex items-center justify-between mb-4"><span className="text-[14px] font-black text-white uppercase tracking-widest animate-pulse">Generating Blueprint...</span><span className="text-2xl font-black text-zinc-500">{Math.round(progress)}%</span></div>
-                <div className="w-full h-2 bg-zinc-950 rounded-full border border-zinc-800/50 overflow-hidden"><div className="h-full bg-indigo-500 transition-all duration-700" style={{ width: `${progress}%` }}></div></div>
+                <div className="flex items-center justify-between mb-4"><span className="text-[14px] font-black text-white uppercase tracking-widest animate-pulse">Reconstructing DNA...</span><span className="text-2xl font-black text-zinc-500">{Math.round(progress)}%</span></div>
+                <div className="w-full h-2 bg-zinc-950 rounded-full border border-zinc-800/50 overflow-hidden"><div className="h-full bg-indigo-500 shadow-[0_0_15px_rgba(99,102,241,0.5)] transition-all duration-700" style={{ width: `${progress}%` }}></div></div>
              </div>
           </div>
         ) : isRichText ? (
-          <div className="w-full h-full p-10 md:p-16 overflow-y-auto markdown-body animate-fade-in-up custom-scrollbar" dangerouslySetInnerHTML={{ __html: marked.parse(getContent(), { async: false }) as string }} />
+          <div className="w-full h-full p-10 md:p-16 overflow-y-auto markdown-body animate-fade-in-up custom-scrollbar" ref={pdfRef}>
+             <div className="pdf-export-mode bg-[#050505] p-12 rounded-3xl border border-zinc-800/30" dangerouslySetInnerHTML={{ __html: marked.parse(getContent(), { async: false }) as string }} />
+          </div>
         ) : (
           <div className="w-full h-full relative group">
             <textarea ref={sourceRef} readOnly value={getContent()} className="w-full h-full p-10 bg-transparent text-zinc-400 font-mono text-xs md:text-sm resize-none focus:outline-none leading-relaxed custom-scrollbar" spellCheck={false} />

@@ -2,7 +2,6 @@ import { GoogleGenAI, Type, Chat } from "@google/genai";
 import { FileNode, ConceptBundle, Project } from "../types";
 import { AI_CONFIG, STORAGE_KEYS } from "../constants";
 
-// Helper to get key from local storage with migration support
 const getAiClient = () => {
     const key = localStorage.getItem(STORAGE_KEYS.API_KEY) || localStorage.getItem('user_gemini_key');
     if (!key) throw new Error("API_KEY_MISSING: Please restart the session and enter your API key.");
@@ -33,6 +32,13 @@ Output Format (Markdown):
 ## 5. Developer "Gotchas"
 `;
 
+const PROMPT_MAP = `
+You are a Systems Designer. Create an "Architectural Schematic Map" of this application using Mermaid.js syntax.
+The diagram should show the flow of data, component relationships, and key logic segments.
+Include a section describing the "Logic Segmentation".
+Return a response that includes a valid Mermaid.js block (e.g. graph TD) and a markdown explanation of the segmentation.
+`;
+
 const PROMPT_CONCEPTS = `
 Analyze the provided codebase and identify 5 to 10 distinct "Feature Concepts" or "Architectural Bundles".
 Return ONLY a JSON array of objects with "id" (kebab-case), "name" (Title Case), and "description" (one short sentence).
@@ -55,7 +61,7 @@ Output Format (Markdown):
 export const generateAIInsights = async (
   flattenedCode: string, 
   files: FileNode[]
-): Promise<{ summary: string; aiContext: string; concepts: ConceptBundle[] }> => {
+): Promise<{ summary: string; aiContext: string; concepts: ConceptBundle[]; schematicMap: string; folderMap: string }> => {
   
   const ai = getAiClient();
   const model = AI_CONFIG.FAST_MODEL; 
@@ -81,9 +87,10 @@ export const generateAIInsights = async (
     }
   };
 
-  const [summary, aiContext, conceptsRaw] = await Promise.all([
+  const [summary, aiContext, schematicMap, conceptsRaw] = await Promise.all([
     runTask(PROMPT_SUMMARY),
     runTask(PROMPT_CONTEXT),
+    runTask(PROMPT_MAP),
     runTask(PROMPT_CONCEPTS, {
       responseMimeType: "application/json",
       responseSchema: {
@@ -108,7 +115,7 @@ export const generateAIInsights = async (
     concepts = [{ id: 'core', name: 'Core Logic', description: 'Fundamental system operations.' }];
   }
 
-  return { summary, aiContext, concepts };
+  return { summary, aiContext, concepts, schematicMap: schematicMap || "", folderMap: fileTree };
 };
 
 export const recreateFeatureContext = async (
