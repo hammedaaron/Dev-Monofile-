@@ -6,49 +6,41 @@ interface LandingProps {
 }
 
 const Landing: React.FC<LandingProps> = ({ onNavigate }) => {
-  const [videoContent, setVideoContent] = useState<string>(""); 
+  const [videoConfig, setVideoConfig] = useState<{ type: string, content: string }>({ type: 'url', content: '' }); 
 
   useEffect(() => {
     const fetchVideo = async () => {
-        // Default fallback if DB fails or is empty
-        let currentContent = "https://www.youtube.com/embed/M7lc1UVf-VE?rel=0&modestbranding=1&showinfo=0";
-        
         try {
-          const { data } = await supabase
-              .from('app_settings')
-              .select('value')
-              .eq('key', 'landing_video')
-              .single();
-
-          if (data && data.value) {
-              currentContent = data.value;
+          const { data } = await supabase.from('app_settings').select('*');
+          if (data) {
+              const type = data.find(s => s.key === 'landing_video_type')?.value || 'url';
+              const content = data.find(s => s.key === 'landing_video_content')?.value || "https://www.youtube.com/embed/M7lc1UVf-VE?rel=0&autoplay=1&muted=1";
+              setVideoConfig({ type, content });
           }
         } catch (err) {
-          console.warn("Using fallback video source");
+          console.warn("Using fallback video config");
         }
-        setVideoContent(currentContent);
     };
     fetchVideo();
   }, []);
 
   const renderVideo = () => {
-    if (!videoContent) return null;
+    if (!videoConfig.content) return null;
     
-    // Check if it is full HTML (iframe or similar)
-    if (videoContent.trim().startsWith('<')) {
+    if (videoConfig.type === 'html') {
         return (
             <div 
-                className="w-full h-full flex items-center justify-center overflow-hidden"
-                dangerouslySetInnerHTML={{ __html: videoContent }}
+                className="w-full h-full flex items-center justify-center"
+                dangerouslySetInnerHTML={{ __html: videoConfig.content }}
             />
         );
     }
     
-    // Fallback to high-fidelity iframe with content as src
+    // High-fidelity standard URL wrapper
     return (
         <iframe 
             className="w-full h-full"
-            src={videoContent}
+            src={videoConfig.content}
             title="Monofile Walkthrough"
             frameBorder="0" 
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
@@ -62,7 +54,6 @@ const Landing: React.FC<LandingProps> = ({ onNavigate }) => {
       
       {/* 1. HERO SECTION */}
       <section className="relative min-h-screen flex flex-col items-center justify-center pt-24 pb-20 px-6 text-center overflow-hidden">
-        {/* Abstract Background Effects */}
         <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-zinc-800/20 via-black to-black -z-10"></div>
         <div className="absolute top-[20%] left-1/2 -translate-x-1/2 w-[800px] h-[500px] bg-indigo-600/10 rounded-full blur-[120px] animate-pulse -z-10"></div>
         <div className="absolute bottom-0 w-full h-32 bg-gradient-to-t from-black to-transparent z-10"></div>
@@ -81,7 +72,6 @@ const Landing: React.FC<LandingProps> = ({ onNavigate }) => {
             Turn any codebase into one <span className="text-indigo-400 font-semibold">clean, readable document</span>.
           </h2>
 
-          {/* Buttons */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-6 mt-10">
             <button 
               onClick={() => onNavigate('auth')}
@@ -97,30 +87,21 @@ const Landing: React.FC<LandingProps> = ({ onNavigate }) => {
             </button>
           </div>
 
-          {/* --- EMBEDDED VIDEO PLAYER --- */}
           <div className="mt-24 w-full max-w-4xl mx-auto relative group">
+             <div className="absolute -inset-1 bg-gradient-to-r from-indigo-500/20 to-purple-600/20 rounded-[1.8rem] blur-2xl opacity-0 group-hover:opacity-100 transition duration-1000"></div>
              
-             {/* 1. Cosmetic Glow behind video */}
-             <div className="absolute -inset-1 bg-gradient-to-r from-indigo-500/20 to-purple-600/20 rounded-[1.8rem] blur-xl opacity-0 group-hover:opacity-100 transition duration-1000"></div>
-             
-             {/* 2. The Video Player Container */}
-             <div className="relative aspect-video bg-black rounded-[1.4rem] border border-zinc-800/60 overflow-hidden shadow-[0_0_60px_-15px_rgba(0,0,0,0.8)] z-20">
-                 {videoContent && renderVideo()}
-                 
-                 {/* Top Shadow Gradient for visual depth */}
-                 <div className="absolute top-0 left-0 w-full h-8 bg-gradient-to-b from-black/40 to-transparent pointer-events-none"></div>
+             <div className="relative aspect-video bg-black rounded-[1.8rem] border border-zinc-800/60 overflow-hidden shadow-2xl z-20 ring-1 ring-white/5">
+                 {videoConfig.content && renderVideo()}
+                 <div className="absolute top-0 left-0 w-full h-12 bg-gradient-to-b from-black/60 to-transparent pointer-events-none"></div>
              </div>
 
-             {/* 3. Label */}
              <div className="flex items-center justify-center gap-3 mt-8 opacity-40 group-hover:opacity-100 transition-opacity">
-                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
-                <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">
-                    System Architecture Walkthrough
+                <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse"></div>
+                <p className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.3em]">
+                    Production Feature Reel
                 </p>
              </div>
           </div>
-          {/* --- END VIDEO SECTION --- */}
-
         </div>
       </section>
 
@@ -157,7 +138,6 @@ const Landing: React.FC<LandingProps> = ({ onNavigate }) => {
               </div>
             </div>
 
-            {/* Visual Representation of Output */}
             <div className="relative group">
               <div className="absolute -inset-1 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-2xl blur opacity-25 group-hover:opacity-50 transition duration-1000"></div>
               <div className="relative bg-[#0d0d0d] border border-zinc-800 p-6 md:p-8 rounded-xl shadow-2xl overflow-hidden font-mono text-xs md:text-sm">
