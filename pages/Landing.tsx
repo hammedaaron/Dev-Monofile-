@@ -27,21 +27,22 @@ const Landing: React.FC<LandingProps> = ({ onNavigate }) => {
   const renderVideo = () => {
     if (!videoConfig.content) return null;
     
+    // Explicit HTML Embed Logic
     if (videoConfig.type === 'html') {
         return (
             <div 
-                className="w-full h-full flex items-center justify-center"
+                className="w-full h-full flex items-center justify-center video-host-wrapper"
                 dangerouslySetInnerHTML={{ __html: videoConfig.content }}
             />
         );
     }
     
-    // High-fidelity standard URL wrapper
+    // Explicit URL/Smart Link Logic
     return (
         <iframe 
             className="w-full h-full"
             src={videoConfig.content}
-            title="Monofile Walkthrough"
+            title="Monofile Production Asset"
             frameBorder="0" 
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
             allowFullScreen
@@ -88,17 +89,22 @@ const Landing: React.FC<LandingProps> = ({ onNavigate }) => {
           </div>
 
           <div className="mt-24 w-full max-w-4xl mx-auto relative group">
-             <div className="absolute -inset-1 bg-gradient-to-r from-indigo-500/20 to-purple-600/20 rounded-[1.8rem] blur-2xl opacity-0 group-hover:opacity-100 transition duration-1000"></div>
+             {/* Dynamic Glow */}
+             <div className="absolute -inset-1 bg-gradient-to-r from-indigo-500/30 to-purple-600/30 rounded-[2rem] blur-3xl opacity-0 group-hover:opacity-100 transition duration-1000"></div>
              
-             <div className="relative aspect-video bg-black rounded-[1.8rem] border border-zinc-800/60 overflow-hidden shadow-2xl z-20 ring-1 ring-white/5">
+             {/* The Video Container */}
+             <div className="relative aspect-video bg-black rounded-[1.8rem] border border-zinc-800/60 overflow-hidden shadow-2xl z-20 ring-1 ring-white/5 transition-transform group-hover:scale-[1.01]">
                  {videoConfig.content && renderVideo()}
-                 <div className="absolute top-0 left-0 w-full h-12 bg-gradient-to-b from-black/60 to-transparent pointer-events-none"></div>
+                 
+                 {/* Cinematic Top Shadow Gradient */}
+                 <div className="absolute top-0 left-0 w-full h-16 bg-gradient-to-b from-black/60 to-transparent pointer-events-none"></div>
              </div>
 
+             {/* Footer Signal */}
              <div className="flex items-center justify-center gap-3 mt-8 opacity-40 group-hover:opacity-100 transition-opacity">
                 <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse"></div>
                 <p className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.3em]">
-                    Production Feature Reel
+                    Feature Demonstration Stream
                 </p>
              </div>
           </div>
@@ -262,6 +268,15 @@ const Landing: React.FC<LandingProps> = ({ onNavigate }) => {
            <div className="h-px w-12 bg-zinc-700"></div>
         </div>
       </section>
+
+      <style>{`
+        .video-host-wrapper iframe,
+        .video-host-wrapper video {
+            width: 100% !important;
+            height: 100% !important;
+            border: none;
+        }
+      `}</style>
 
     </div>
   );
